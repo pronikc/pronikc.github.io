@@ -3,158 +3,97 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Мемоголос - Голосование за лучший мем 
-    
-</title>
+<title>Мемоленд - Реальное время</title>
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 20px;
-        background-color: #fcfcfc;
-    }
-    h1 {
-        text-align: center;
-        color: #333;
-    }
-    #uploadSection, #gallery {
-        max-width: 800px;
-        margin: 20px auto;
-        padding: 10px;
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    #uploadSection input[type="file"] {
-        display: block;
-        margin-bottom: 10px;
-    }
-    #uploadButton {
-        padding: 8px 16px;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    #uploadButton:hover {
-        background-color: #45a049;
-    }
-    .meme {
-        margin-bottom: 20px;
-        position: relative;
-    }
-    .meme img {
-        max-width: 100%;
-        border-radius: 4px;
-    }
-    .voteBtn {
-        display: inline-block;
-        padding: 6px 12px;
-        margin-top: 8px;
-        background-color: #008CBA;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    .voteBtn:hover {
-        background-color: #007BA7;
-    }
-    .votesCount {
-        font-weight: bold;
-        margin-left: 10px;
-    }
+body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+h1 { text-align: center; }
+#uploadSection { max-width: 600px; margin: 20px auto; padding: 10px; background: #fff; border-radius: 8px; }
+#gallery { max-width: 800px; margin: 20px auto; }
+.meme { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 8px; }
+.meme img { max-width: 100%; border-radius: 4px; display: block; margin-bottom: 8px; }
+button { padding: 8px 12px; margin-right: 10px; cursor: pointer; border: none; border-radius: 4px; background-color: #008CBA; color: #fff; }
+button:hover { background-color: #007BA7; }
 </style>
 </head>
 <body>
 
-<h1>Мемоленд - Голосование за лучший мем<br>
-    Я эту хрень сделал наколенке за минут 20 если будет время то доделаю<br>
-    Писал на html Слабо повторит
-</h1>
+<h1>Мемоленд - Голосование за лучший мем</h1>
 
-<!-- Раздел для загрузки мемов -->
 <div id="uploadSection">
-    <h2>Добавить мем</h2>
-    <input type="file" id="fileInput" accept="image/*" />
-    <button id="uploadButton">Загрузить мем</button>
+  <h2>Добавить мем</h2>
+  <input type="file" id="fileInput" accept="image/*" />
+  <button id="uploadBtn">Загрузить</button>
 </div>
 
-<!-- Галерея мемов -->
-<div id="gallery">
-    <h2>Мемы</h2>
-    <div id="memesContainer"></div>
-</div>
+<div id="gallery"></div>
 
+<!-- Подключение socket.io -->
+<script src="/socket.io/socket.io.js"></script>
 <script>
-// Массив для хранения мемов в виде объектов {id, url, votes}
-let memes = [];
-let memeIdCounter = 0; // Для уникальной идентификации мемов
+const socket = io();
 
-// Получение элементов DOM
+// Элементы страницы
 const fileInput = document.getElementById('fileInput');
-const uploadButton = document.getElementById('uploadButton');
-const memesContainer = document.getElementById('memesContainer');
+const uploadBtn = document.getElementById('uploadBtn');
+const gallery = document.getElementById('gallery');
 
-// Обработчик загрузки нового мема
-uploadButton.addEventListener('click', () => {
-    const file = fileInput.files[0];
-    if (!file) {
-        alert('Пожалуйста, выберите изображение для загрузки!');
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const url = e.target.result;
-        // Создаем объект мемов
-        const meme = { id: memeIdCounter++, url: url, votes: 0 };
-        memes.push(meme);
-        renderMemes();
-    };
-    reader.readAsDataURL(file);
+// Обновляем полностью список мемов при инициализации
+socket.on('initialMemes', (memes) => {
+    gallery.innerHTML = '';
+    memes.forEach(renderMeme);
 });
 
-// Функция для отображения всех мемов
-function renderMemes() {
-    // Очистка контейнера перед рендерингом
-    memesContainer.innerHTML = '';
+// Добавление нового мема
+socket.on('newMeme', (meme) => {
+    renderMeme(meme);
+});
 
-    // Перебираем все мемы
-    memes.forEach(meme => {
-        const memeDiv = document.createElement('div');
-        memeDiv.className = 'meme';
+// Обновление голосов
+socket.on('updateVotes', ({id, votes}) => {
+    const votesSpan = document.getElementById(`votes-${id}`);
+    if (votesSpan) {
+        votesSpan.innerText = `Голосов: ${votes}`;
+    }
+});
 
-        // Создаем изображение
-        const img = document.createElement('img');
-        img.src = meme.url;
+// Создаем элемент мема
+function renderMeme(meme) {
+    const div = document.createElement('div');
+    div.className = 'meme';
 
-        // Кнопка голосовать
-        const voteBtn = document.createElement('button');
-        voteBtn.className = 'voteBtn';
-        voteBtn.innerText = 'Голосовать';
-        voteBtn.onclick = () => {
-            meme.votes++;
-            renderMemes(); // Обновляем отображение
-        };
+    const img = document.createElement('img');
+    img.src = meme.url;
 
-        // Отображение количества голосов
-        const votesSpan = document.createElement('span');
-        votesSpan.className = 'votesCount';
-        votesSpan.innerText = `Голосов: ${meme.votes}`;
+    const voteBtn = document.createElement('button');
+    voteBtn.innerText = 'Голосовать';
+    voteBtn.onclick = () => {
+        socket.emit('vote', meme.id);
+    };
 
-        // Собираем все элементы
-        memeDiv.appendChild(img);
-        memeDiv.appendChild(voteBtn);
-        memeDiv.appendChild(votesSpan);
+    const votesSpan = document.createElement('span');
+    votesSpan.id = `votes-${meme.id}`;
+    votesSpan.innerText = `Голосов: ${meme.votes}`;
 
-        // Добавляем в контейнер
-        memesContainer.appendChild(memeDiv);
-    });
+    div.appendChild(img);
+    div.appendChild(voteBtn);
+    div.appendChild(votesSpan);
+
+    gallery.appendChild(div);
 }
 
-// Изначально ничего не отображать, можно добавить стартовые мемы или оставить пустым
+// Загрузка нового мема
+uploadBtn.onclick = () => {
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Выберите изображение!');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        socket.emit('addMeme', { url: reader.result });
+    };
+    reader.readAsDataURL(file);
+};
 </script>
-
 </body>
 </html>
